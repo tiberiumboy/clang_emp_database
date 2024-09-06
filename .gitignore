@@ -1,0 +1,5 @@
+# omit compiled code objects
+bin/*
+obj/*
+gcc_note.txt
+*.db

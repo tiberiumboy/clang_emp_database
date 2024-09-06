@@ -1,0 +1,25 @@
+{
+    "files.associations": {
+        "stdio.h": "c",
+        "parse.h": "c",
+        "common.h": "c",
+        "unistd.h": "c",
+        "getopt.h": "c",
+        "database.h": "c",
+        "fcntl.h": "c",
+        "chrono": "c",
+        "inet.h": "c",
+        "stdlib.h": "c",
+        "employee.h": "c",
+        "random": "c",
+        "queue": "c",
+        "types.h": "c",
+        "arguments.h": "c",
+        "dblib.h": "c",
+        "file.h": "c",
+        "bitset": "c",
+        "map": "c",
+        "unordered_map": "c",
+        "unordered_set": "c"
+    }
+}
