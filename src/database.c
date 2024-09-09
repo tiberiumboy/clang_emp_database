@@ -1,46 +1,49 @@
 #include "database.h"
 
 // private
-void host_to_network_info(struct database_info_t *info) {
+
+void host_to_network_info(INFO_T *info) {
     info->magic = htonl(info->magic);
     info->filesize = htonl(info->filesize);
     info->count = htons(info->count);
     info->version = htons(info->version);
 }
 
-void network_to_host_info(struct database_info_t *info) {
+void network_to_host_info(INFO_T *info) {
     info->magic = ntohl(info->magic);
     info->filesize = ntohl(info->filesize);
     info->count = ntohs(info->count);
     info->version = ntohs(info->version);
 }
 
-void update_file_size(struct database_t *self ) {
-    size_t info_size = sizeof(struct database_info_t);
-    size_t emp_size = sizeof(struct employee_t);
-    self->info->filesize = info_size + emp_size * self->info->count;
-}
-
-void __save(int fd, struct database_info_t *info) {
+void __save(int fd, INFO_T *info) {
     // convert to network eudian
+    info->filesize = INFO_SIZE + EMP_SIZE * info->count;
+
+    // if we have more data in the file, truncate to the appropriate size.
+    if( ftruncate(fd, info->filesize) != 0 ) {
+        // something happen here
+        perror("ftruncate");
+        return;
+    }
+
     host_to_network_info(info);
 
     // write to file.
     lseek(fd, 0, SEEK_SET);
-    write(fd, info, sizeof(struct database_info_t));
+    write(fd, info, INFO_SIZE);
 
     // convert back to host eudian
     network_to_host_info(info);
 }
 
-database_status validate_database(int fd, struct database_t *self) {   
-    size_t info_size = sizeof(struct database_info_t); 
-    struct database_info_t *info = malloc(info_size);
+database_status validate_database(int fd, DB_T *self) {   
+    struct database_info_t *info = malloc(INFO_SIZE);
     if( info == NULL ) {
         return DB_MALLOC;
     }
 
-    if (read(fd, info, info_size) != info_size) {
+    if (read(fd, info, INFO_SIZE) != INFO_SIZE) {
         printf("Failed to read via validate database method\n");
         perror("read");
         return DB_READFAIL;
@@ -64,7 +67,7 @@ database_status validate_database(int fd, struct database_t *self) {
     return DB_SUCCESS;
 }
 
-database_status create_database(char *filepath, struct database_t **databaseOut) {
+database_status create_database(char *filepath, DB_T **databaseOut) {
     int fd = open(filepath, O_RDWR | O_CREAT, PERMISSION);
     if ( fd == -1 )
     {
@@ -72,8 +75,8 @@ database_status create_database(char *filepath, struct database_t **databaseOut)
         return DB_CORRUPTED;
     }
     
-    struct database_t *database = malloc(sizeof(struct database_t));
-    struct database_info_t *info = malloc(sizeof(struct database_info_t));
+    DB_T *database = malloc(DB_SIZE);
+    INFO_T *info = malloc(INFO_SIZE);
 
     if (database == NULL || info == NULL ) {
         return DB_MALLOC;
@@ -83,8 +86,9 @@ database_status create_database(char *filepath, struct database_t **databaseOut)
     info->version = 0x1;
     info->count = 0;
     info->magic = HEADER_MAGIC;
-    info->filesize = sizeof(struct database_info_t);
+    info->filesize = 0; // this information will be populated in the __save() command below
 
+    // save data
     __save(fd, info);
 
     // assign pointers
@@ -95,34 +99,52 @@ database_status create_database(char *filepath, struct database_t **databaseOut)
     return DB_SUCCESS;
 }
 
-database_status read_database(struct database_t *self, struct employee_t **employeesOut) {
+database_status read_database(DB_T *self, EMP_T **employeesOut) {
     uint16_t count = self->info->count;
-    size_t emp_size = sizeof(struct employee_t) * count;
+    size_t emp_size = EMP_SIZE * count;
+    EMP_T *emp = malloc(count * emp_size);
 
-    if( read(self->fd, employeesOut, emp_size) != emp_size ) {
-        printf("Failed to read via read database method\n");
+    if( read(self->fd, emp, emp_size) != emp_size ) {
         perror("read");
         return DB_READFAIL;
     }
     
     for (int i = 0; i<count; i++ ) {
-        employeesOut[i]->hours = ntohl(employeesOut[i]->hours);
+        emp[i].hours = ntohs(emp[i].hours);
     }
+    
+    *employeesOut = emp;
 
     return DB_SUCCESS;
 }
 
-// public 
+// public
 
-database_status open_database(char *filepath, struct database_t **databaseOut, struct employee_t **employeesOut)  {
+bool valid_connection(DB_T *db) {
+    if ( db == NULL || db->info == NULL ) {
+        return false;
+    }
+    return true;
+}
+
+database_status open_database(char *filepath, DB_T **databaseOut, EMP_T **employeesOut)  {
+    if ( filepath == NULL ) {
+        return DB_INVALIDINPUT;
+    }
+
+    if (  *databaseOut != NULL ) {
+        return DB_CONNECTED;
+    }
+    
     int fd = open(filepath, O_RDWR, PERMISSION);
     if ( fd == -1 ) {
         close(fd);
-        printf("File do not exist. Creating a new database instead...\n");
+        printf("[WARN] File do not exist.\n");
+        *employeesOut = calloc(0, EMP_SIZE);
         return create_database(filepath, databaseOut);
     }
 
-    struct database_t *database = malloc(sizeof(struct database_t));
+    DB_T *database = malloc(DB_SIZE);
     if( database == NULL ) {
         close(fd);
         return DB_MALLOC;
@@ -142,38 +164,29 @@ database_status open_database(char *filepath, struct database_t **databaseOut, s
             break;
     }
     
-    switch( read_database(database, employeesOut) ) {
-        case EMP_BADFD:
-            printf("Bad file descriptor provided by user!\n");
-            return DB_BADFD;
-        case EMP_MALLOC: 
-            printf("Unable to allocate memory for employees - ran out of space!\n");
-            return DB_MALLOC; 
+    if( read_database(database, employeesOut) == DB_READFAIL ) {
+        printf("[ERROR] Unable to read database\n");
+        result = DB_CORRUPTED;
     }
 
     return result;
 } 
 
-database_status save_database(struct database_t *self, struct employee_t* employees) {
-    if( self == NULL || self->info == NULL ) {
-        return DB_READFAIL;
-    }
-
-    update_file_size(self);
+database_status save_database(DB_T *self, EMP_T* employees) {
     unsigned short count = self->info->count;
     __save(self->fd, self->info);
     
-    size_t struct_size = sizeof(struct employee_t);
+    size_t emp_size = EMP_SIZE;
     for(int i = 0; i < count; i++) {
-        employees[i].hours = htonl(employees[i].hours);
-        write(self->fd, &employees[i], struct_size);
-        employees[i].hours = ntohl(employees[i].hours);
+        employees[i].hours = htons(employees[i].hours);
+        write(self->fd, &employees[i], emp_size);
+        employees[i].hours = ntohs(employees[i].hours);
     }
 
     return DB_SUCCESS;
 }
 
-database_status close_database(struct database_t *self) {
+database_status close_database(DB_T *self) {
     if ( &self->fd == NULL ){
         return DB_SUCCESS;
     }
@@ -185,34 +198,73 @@ database_status close_database(struct database_t *self) {
     return DB_SUCCESS;
 }
 
-database_status add_employee(char *addstr, struct database_t *database, struct employee_t **employees) {
-    struct employee_t *emp = {0};
+database_status add_employee(char *addstr, DB_T *database, EMP_T **employees) {
+    EMP_T *emp = NULL;
+
     if( parse_employee(addstr, &emp) == EMP_MALLOC ) {
         return DB_MALLOC;
     }
 
-    uint16_t count = database->info->count + 1; 
-    employees = realloc(employees, count * sizeof(struct employee_t));  
-    *employees[count-1] = *emp;
+    uint16_t count = database->info->count + 1;
+    uint16_t total_size = count * EMP_SIZE;
+    EMP_T *new_ptr = NULL;  
+     
+    new_ptr = realloc(*employees, total_size);
+    if( new_ptr == NULL ) {
+        perror("realloc");
+        return DB_MALLOC; 
+    }  
+    new_ptr[count - 1] = *emp;
+    *employees = new_ptr;
+    database->info->count = count;
     return DB_SUCCESS;
 }
 
-database_status remove_employee(char *filter, struct database_t *database, struct employee_t **employees) {
-    // do I need to iterate through the collection of employees, and find the matching filter?
-    uint16_t count = database->info->count;
+database_status remove_employee(char *filter, DB_T *database, EMP_T **employees) {
+    uint16_t count = database->info->count - 1;
     uint16_t i = 0;
-    for(;i<count;i++) {
-        struct employee_t *emp = employees[i];
-        if( emp->name == filter ) 
+    
+    for(;i<=count;i++) {
+        if( strcmp( (*employees + i)->name, filter ) == 0 ) 
         {
-            // we found the guy!
-            *(employees + i ) = *(employees + count);
-            count = count - 1;
+            if( i < count ) { 
+                // swap target to last element of array ( Last array element will be truncated )
+                (*employees)[i] = (*employees)[count];
+            }
+
+            EMP_T *ptr = NULL;
+            ptr = realloc(*employees, count * EMP_SIZE);
+            if ( ptr == NULL ) {
+                perror("realloc");
+                return DB_MALLOC;
+            }
+
             database->info->count = count;
-            employees = realloc(employees, count * sizeof(struct employee_t));
+            *employees = ptr;
             return DB_SUCCESS;
         }
     }
 
     return DB_NOTFOUND;
+}
+
+database_status update_employee(char *newstr, DB_T *database, EMP_T **employees) {
+    EMP_T *target = NULL;
+    if( parse_employee(newstr, &target) == EMP_MALLOC ) {
+        return DB_MALLOC;
+    }
+    
+    uint16_t count = database->info->count;
+    uint16_t i = 0;
+    database_status status = DB_NOTFOUND;
+    
+    for(;i<count;i++) {
+        if(strcmp((*employees + i)->name, target->name) == 0 ) {
+            (*employees)[i] = *target;
+            status = DB_SUCCESS;
+            break;
+        }
+    }
+    
+    return status;
 }

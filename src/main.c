@@ -2,105 +2,141 @@
 #include "database.h"
 #include "employee.h"
 
-// TODO: add functionality to remove employee by name using -r flag
-// TODO: update employee's hour using -u
+int check_connection( DB_T *db) {
+    if( !valid_connection(db) ) {
+        printf("Please connect to database first!\n");
+        return EXIT_FAILURE;
+    } 
+    
+    return EXIT_SUCCESS;
+}
 
 int main(int argc, char **argv) {
     int c;
-    char *filepath = NULL;
     struct database_t *database = NULL;
     struct employee_t *employees = NULL;
 
-    while ((c = getopt(argc, argv, "nf:a:lr:")) != -1 ) {
+    while ((c = getopt(argc, argv, "nf:a:r:u:l")) != -1 ) {
         switch( c ) {
             case 'f':
-                filepath = optarg;
-                if ( filepath == NULL ) {
-                    printf("Invalid arguments! Please provide the database path! after -f\n");
-                    return -1;
-                }
-
-                if ( database != NULL ) {
-                    printf("Database connection is already established! Ignoring -f arguments");
-                    break;
-                }
-
-                switch( open_database(filepath, &database, &employees) ) {
+                switch( open_database(optarg, &database, &employees) ) {
                     case DB_BADFD:
                         break;
                     case DB_MALLOC:
                         printf("Cannot allocate memory for the file! Ran out of space!\n");
-                        return -1;
+                        return EXIT_FAILURE;
                     case DB_READFAIL:
                         printf("Fail to read database file!\n");
-                        return -1;
+                        return EXIT_FAILURE;
                     case DB_INVALIDDATA:
                         printf("Failed to validate database header\n");
-                        return -1;
+                        return EXIT_FAILURE;
                     case DB_CORRUPTED:
                         printf("Validation failed: File size mismatch! The data may have been corrupted!\n");
-                        return -1;
+                        return EXIT_FAILURE;
+                    case DB_INVALIDINPUT:
+                        printf("Invalid arguments! Please provide the database path! after -f\n");
+                        return EXIT_FAILURE;
+                    case DB_CONNECTED:
+                        printf("Database connection is already established! Ignoring -f arguments\n");
+                        break;
                 }
                 break;
 
             case 'n':
-                // wink wink ;)
-                printf("Database created!\n");
-                return 0;
+                // wink wink ;D
+                printf("[SUCCESS] Database created!\n");
+                return EXIT_SUCCESS;
 
             case 'a':
-                if ( database == NULL || database->info == NULL ) {
-                    printf("Please connect to database first!\n");
-                    return -1;
+                if( check_connection(database) == EXIT_FAILURE ) {
+                    return EXIT_FAILURE;
                 }
-                
+
                 if ( optarg == NULL ) {
                     printf("Invalid arguments! Please provide \"name,address,hours\" after -a\n");
-                    return -1;
+                    return EXIT_FAILURE;
                 }
 
                 struct employee_t *employee = NULL;
                 if( add_employee(optarg, database, &employees) == DB_MALLOC ) {
-                    printf("Unable to allocate new space!\n");
+                    printf("[FAILED] Unable to allocate new space!\n");
                     break;
                 }
 
-                printf("Successfully added employee\n");
-
                 if( save_database(database, employees) == DB_BADFD ) {
-                    printf("Got a bad FD from user!\n");
+                    printf("[FAILURE] Got a bad FD from user!\n");
+                    break;
                 }
 
-                printf("Successfully save\n");
-                
+                printf("[SUCCESS] Employee added\n");
                 break;
             case 'l' :
-                if ( database == NULL || database->info == NULL ) {
-                    printf("Please connect to database first!\n");
-                    return -1;
+                if( check_connection(database) == EXIT_FAILURE ) {
+                    return EXIT_FAILURE;
                 }
-                printf("Listing employees\n");
+
                 list_employees(database->info->count, employees);
                 close_database(database);
-                return 0;
+                return EXIT_SUCCESS;
             case 'r' :
-                if  ( database == NULL || database->info == NULL ) {
-                    printf("Please connect to database first!\n");
-                    return -1;
+                if( check_connection(database) == EXIT_FAILURE ) {
+                    return EXIT_FAILURE;
                 }
+
+                if ( optarg == NULL ) {
+                    printf("Invalid arguments! Please provide \"name\" after -r\n");
+                    return EXIT_FAILURE;
+                }   
+
+                if( remove_employee(optarg, database, &employees) == DB_SUCCESS ) {
+                    save_database(database, employees);
+                    printf("[SUCCESS] Employee removed!\n");
+                } else {
+                    printf("[FAILED] Unable to remove employee!\n");
+                }
+
+                break;
+            case 'u' :
+                if( check_connection(database) == EXIT_FAILURE ) {
+                    return EXIT_FAILURE;
+                }
+
+                if( optarg == NULL ) {
+                    printf("Invalid arguments! Please provide \"name,address,hours\" after -u\n");
+                    return EXIT_FAILURE;
+                }
+
+                switch( update_employee(optarg, database, &employees) ) {
+                    case DB_SUCCESS:
+                        save_database(database, employees);
+                        printf("[SUCCESS] Updated one employee!");
+                        break;
+                    case DB_NOTFOUND:
+                        printf("[FAILED] Could not find target employee to update to!\n");
+                        return EXIT_FAILURE;
+                    case DB_MALLOC:
+                        printf("[FAILED] Unable to allocate memory for employee!\n");
+                        return EXIT_FAILURE;
+                }
+
+                break;
             case '?':
                 printf("Unknown option - %c\n", c);
-                return 0;
+                return EXIT_SUCCESS;
             default:
-                printf("default was called... should not happen");
-                return 0;
+                printf("default was called... should not happen\n");
+                return EXIT_SUCCESS;
         }
     }
 
     if ( database != NULL ) {
         close_database(database);
     }
+
+    if ( employees != NULL ) {
+        free(employees);
+    }
     
-    printf("Exit program\n");
-    return 0;
+    return EXIT_SUCCESS;
 }

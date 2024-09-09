@@ -1,5 +1,7 @@
 #ifndef EMPLOYEE_H
 #define EMPLOYEE_H
+#define EMP_T struct employee_t
+#define EMP_SIZE sizeof(EMP_T)
 
 #include "dblib.h"
 
@@ -10,13 +12,13 @@ typedef enum {
 } employee_status;
 
 struct employee_t {
-    char name[35];
-    char address[35];
+    char name[24];
+    char address[32];
     uint16_t hours;
 };
 
-employee_status parse_employee(char *addstr, struct employee_t **employeeOut);
-employee_status set_hours(struct employee_t *, uint16_t newHour);
-void list_employees(uint16_t count, struct employee_t *employees);
+employee_status parse_employee(char *addstr, EMP_T **employeeOut);
+employee_status set_hours(EMP_T *, uint16_t newHour);
+void list_employees(uint16_t count, EMP_T *employees);
 
 #endif

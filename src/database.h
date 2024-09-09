@@ -3,6 +3,10 @@
 
 #define HEADER_MAGIC 0x4c4c4144
 #define PERMISSION 0644 
+#define DB_T struct database_t
+#define INFO_T struct database_info_t
+#define INFO_SIZE sizeof(INFO_T)
+#define DB_SIZE sizeof(DB_T)
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -18,6 +22,8 @@ typedef enum {
     DB_MALLOC,
     DB_READFAIL,
     DB_INVALIDDATA,
+    DB_INVALIDINPUT,
+    DB_CONNECTED,
     DB_CORRUPTED,
     DB_EXIST,
     DB_NOTFOUND,
@@ -30,15 +36,39 @@ struct database_info_t {
     size_t filesize;
 };
 
-struct database_t {
+DB_T {
     int fd;
-    struct database_info_t *info;
+    INFO_T *info;
 };
 
-database_status open_database(char *filepath, struct database_t **databaseOut, struct employee_t **employeesOut);
-database_status save_database(struct database_t *, struct employee_t *employees);
-database_status close_database(struct database_t *);
-database_status add_employee(char *addstr, struct database_t *database, struct employee_t **employees);
-database_status remove_employee(char *filter, struct database_t *database, struct employee_t **employees);
+bool valid_connection(DB_T *db);
+database_status open_database(char *filepath, DB_T **databaseOut, EMP_T **employeesOut);
+database_status save_database(DB_T *, EMP_T *employees);
+
+/// @brief Close and free database connection (This will close file descriptor and free database_info_t obj)
+/// @param  target database to close
+/// @return database status : SUCCESS if pass
+database_status close_database(DB_T *);
+
+/// @brief Parse and append new employee from string.
+/// @param addstr comma splice data containing "name,address,hours" entry
+/// @param database target database pointer - to update employee table count
+/// @param employees target employees collection - to append newly parsed employees
+/// @return database status: SUCCESS if new entry added | potential failure code: DB_MALLOC
+database_status add_employee(char *addstr, DB_T *database, EMP_T **employees);
+
+/// @brief Remove target employee that matches name filter
+/// @param filter the name of the employee to remove entry from
+/// @param database target database pointer
+/// @param employees target employees collection to remove from
+/// @return database status - SUCCESS if pass
+database_status remove_employee(char *filter, DB_T *database, EMP_T **employees);
+
+/// @brief Update employee
+/// @param newstr New updated information to replace current entry 
+/// @param database Target database to affect to
+/// @param employees Collection of employees to make changes to
+/// @return Status : DB_SUCCESS returns | potential errors: DB_MALLOC, DB_NOTFOUND
+database_status update_employee(char *newstr, DB_T *database, EMP_T **employees);
 
 #endif
