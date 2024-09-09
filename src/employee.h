@@ -18,7 +18,6 @@ struct employee_t {
 };
 
 employee_status parse_employee(char *addstr, EMP_T **employeeOut);
-employee_status set_hours(EMP_T *, uint16_t newHour);
 void list_employees(uint16_t count, EMP_T *employees);
 
 #endif
