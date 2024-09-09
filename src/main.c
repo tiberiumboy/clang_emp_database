@@ -1,46 +1,13 @@
 #include "dblib.h"
-#include "employee.h"
 #include "database.h"
+#include "employee.h"
 
 // TODO: add functionality to remove employee by name using -r flag
 // TODO: update employee's hour using -u
 
-int handle_open_database(char *optarg, struct database_t **databaseOut, struct employee_t **employeesOut) {
-    switch(open_database(optarg, databaseOut)) {
-        case DB_BADFD:
-            break;
-        case DB_MALLOC:
-            printf("Cannot allocate memory for the file! Ran out of space!\n");
-            return -1;
-        case DB_READFAIL:
-            printf("Fail to read database file!\n");
-            return -1;
-        case DB_INVALIDDATA:
-            printf(" Failed to validate database header\n");
-            return -1;
-        case DB_CORRUPTED:
-            printf("File may be corrupted!\n");
-            // here we can just simply create a new database file and live our lives normally.
-            // but for now let's break out of this operation until we need to handle this specifically.
-            return -1;
-        case DB_SUCCESS: 
-            switch( read_database(*databaseOut, employeesOut) ) {
-                case EMP_BADFD:
-                    printf("Bad file descriptor provided by user!\n");
-                    return -1;
-                case EMP_MALLOC: 
-                    printf("Unable to allocate memory for employees - ran out of space!\n");
-                    return -1; 
-            }
-        break;
-    }
-
-    return 0;
-}
-
 int handle_creating_employee( char *optarg, struct database_t *database, struct employee_t *employeesOut ) {
     struct employee_t *employee = NULL;
-    if( parse_employee(optarg, database, &employee) == DB_MALLOC ) {
+    if( add_employee(optarg, database, &employee) == DB_MALLOC ) {
         printf("Unable to allocate new space!\n");
         return -1;
     }
@@ -54,7 +21,7 @@ int main(int argc, char **argv) {
     struct database_t *database = NULL;
     struct employee_t *employees = NULL;
 
-    while ((c = getopt(argc, argv, "nf:a:l")) != -1 ) {
+    while ((c = getopt(argc, argv, "nf:a")) != -1 ) {
         switch( c ) {
             case 'f':
                 filepath = optarg;
@@ -64,34 +31,39 @@ int main(int argc, char **argv) {
                 }
 
                 if ( database != NULL ) {
-                    printf("Database connection is already established! Ignoring -f path");
-                    return -1;
-                }
-
-                handle_open_database( filepath, &database, &employees );
-                break;
-
-            case 'n':
-                if( database != NULL ) {
-                    printf("Database exist! Ignoring -n flag...");
+                    printf("Database connection is already established! Ignoring -f arguments");
                     break;
                 }
 
-                if ( filepath == NULL ) {
-                    printf("Missing database path!\n");
-                    return -1;
+                switch( open_database(filepath, &database, &employees) ) {
+                    case DB_BADFD:
+                        break;
+                    case DB_MALLOC:
+                        printf("Cannot allocate memory for the file! Ran out of space!\n");
+                        return -1;
+                    case DB_READFAIL:
+                        printf("Fail to read database file!\n");
+                        return -1;
+                    case DB_INVALIDDATA:
+                        printf("Failed to validate database header\n");
+                        return -1;
+                    case DB_CORRUPTED:
+                        printf("Validation failed: File size mismatch! The data may have been corrupted!\n");
+                        return -1;
+                    default:
+                        return 0;
                 }
-
-                if ( create_database( filepath, &database ) == DB_BADFD ) {
-                    printf("User provided bad file path!\n");
-                    return -1;
-                }
-                printf("Database created: count: %d\n", database->dbhdr->count);
                 break;
 
+            case 'n':
+                // wink wink ;)
+                printf("Database created!\n");
+                return 0;
+
             case 'a':
-                if ( database == NULL ) {
+                if ( database == NULL || database->info == NULL ) {
                     printf("Please connect to database first!\n");
+                    return -1;
                 }
                 
                 if ( optarg == NULL ) {
@@ -99,31 +71,30 @@ int main(int argc, char **argv) {
                     return -1;
                 }
 
-                printf("About to create employee\n");
-                print_database(&database);
+                print_database(database);
                 handle_creating_employee(optarg, database, employees);
-                break;
+                if( save_database(database, employees) == DB_BADFD ) {
+                    printf("Got a bad FD from user!\n");
+                }
+                close_database(database);
+                return 0;
             case 'l' :
-                list_employees(database->dbhdr->count, employees);
-                break;
+                if ( database == NULL || database->info == NULL ) {
+                    printf("Please connect to database first!\n");
+                    return -1;
+                }
+                list_employees(database->info->count, employees);
+                close_database(database);
+                return 0;
             case '?':
                 printf("Unknown option - %c\n", c);
-                break;
+                return 0;
             default:
                 printf("default was called... should not happen");
-                return -1;
+                return 0;
         }
     }
-                
-    if (database != NULL && &database->fd != NULL) {
-
-        // this should be preconfigurable. Auto save? 
-        if( save_database(database, employees) == DB_BADFD ) {
-            printf("Got a bad FD from user!\n");
-            return -1;
-        }
-        // close_database(database);
-    }
-
+    
+    printf("Exit program\n");
     return 0;
 }

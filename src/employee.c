@@ -1,5 +1,8 @@
 #include <string.h>
 #include "employee.h"
+#include "database.h"
+
+// private
 
 void host_to_network_employee(struct employee_t *employee ) {
     employee->hours = htonl(employee->hours);
@@ -8,6 +11,8 @@ void host_to_network_employee(struct employee_t *employee ) {
 void network_to_host_employee(struct employee_t *employee) {
     employee->hours = ntohl(employee->hours);
 }
+
+// public
 
 void list_employees(unsigned int count, struct employee_t *employees) {
     if ( employees == NULL ) {
@@ -23,7 +28,7 @@ void list_employees(unsigned int count, struct employee_t *employees) {
     }
 }
 
-employee_status parse_employee(char *addstr, struct database_t *database, struct employee_t **employees) {
+employee_status parse_employee(char *addstr, struct employee_t **employeeOut) {
     struct employee_t *emp = malloc(sizeof(struct employee_t));
     if( emp == NULL ) {
         return EMP_MALLOC;
@@ -39,18 +44,15 @@ employee_status parse_employee(char *addstr, struct database_t *database, struct
 
     strncpy(emp->name, name, sizeof(emp->name));
     strncpy(emp->address, addr, sizeof(emp->address));
-    emp->hours = atoi(hours); 
+    emp->hours = atoi(hours);
 
-    printf("Inserting new element into array collection\n");
-    unsigned int count = database->dbhdr->count + 1;    // segmentation fault here? database shouldn't be null, but why is database_info_t is?
-    printf("%d\n", count);
-    employees = realloc(employees, count * sizeof(struct employee_t));  
-    *employees[count-1] = *emp;
+    *employeeOut = emp;
     return EMP_SUCCESS;
 }
 
 employee_status update_employee(struct employee_t *self) {
     // todo figure out what the requirement Ed said about the homework assignment.
+
 
     return EMP_SUCCESS;    
 }

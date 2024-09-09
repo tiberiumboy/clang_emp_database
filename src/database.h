@@ -23,23 +23,21 @@ typedef enum {
 } database_status;
 
 struct database_info_t {
-    unsigned int magic;
-    unsigned short version;
-    unsigned short count;
-    unsigned int filesize;
+    uint32_t magic;
+    uint16_t version;
+    uint16_t count;
+    size_t filesize;
 };
 
 struct database_t {
     int fd;
-    struct database_info_t *dbhdr;
+    struct database_info_t *info;
 };
 
-database_status create_database(char *filepath, struct database_t **databaseOut);
-database_status validate_database(struct database_t *);
-database_status read_database(struct database_t *, struct employee_t **employeesOut);
-database_status open_database(char *filepath, struct database_t **databaseOut);
-database_status close_database(struct database_t *);
+database_status open_database(char *filepath, struct database_t **databaseOut, struct employee_t **employeesOut);
 database_status save_database(struct database_t *, struct employee_t *employees);
+database_status close_database(struct database_t *);
+database_status add_employee(char *addstr, struct database_t *database, struct employee_t **employees);
 
 void print_database(struct database_t *);
 
