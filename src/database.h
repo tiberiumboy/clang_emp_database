@@ -20,6 +20,7 @@ typedef enum {
     DB_INVALIDDATA,
     DB_CORRUPTED,
     DB_EXIST,
+    DB_NOTFOUND,
 } database_status;
 
 struct database_info_t {
@@ -38,7 +39,6 @@ database_status open_database(char *filepath, struct database_t **databaseOut, s
 database_status save_database(struct database_t *, struct employee_t *employees);
 database_status close_database(struct database_t *);
 database_status add_employee(char *addstr, struct database_t *database, struct employee_t **employees);
-
-void print_database(struct database_t *);
+database_status remove_employee(char *filter, struct database_t *database, struct employee_t **employees);
 
 #endif

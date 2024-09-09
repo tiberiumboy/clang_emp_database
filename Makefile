@@ -8,7 +8,8 @@ run: clean default
 	./$(TARGET) -f ./mynewdb.db -a "Kevin Hart,123 New Hemisphere Dr.,69"
 	./$(TARGET) -f ./mynewdb.db -a "Snoop Dawg,1000 New Orlean Dr.,420"
 	./$(TARGET) -f ./mynewdb.db -l
-	
+	./$(TARGET) -f ./mynewdb.db -r "John Doe"
+	./$(TARGET) -f ./mynewdb.db -l
 default: $(TARGET)
 
 clean:

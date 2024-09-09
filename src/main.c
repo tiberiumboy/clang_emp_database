@@ -5,23 +5,13 @@
 // TODO: add functionality to remove employee by name using -r flag
 // TODO: update employee's hour using -u
 
-int handle_creating_employee( char *optarg, struct database_t *database, struct employee_t *employeesOut ) {
-    struct employee_t *employee = NULL;
-    if( add_employee(optarg, database, &employee) == DB_MALLOC ) {
-        printf("Unable to allocate new space!\n");
-        return -1;
-    }
-
-    return 0;
-}
-
 int main(int argc, char **argv) {
     int c;
     char *filepath = NULL;
     struct database_t *database = NULL;
     struct employee_t *employees = NULL;
 
-    while ((c = getopt(argc, argv, "nf:a")) != -1 ) {
+    while ((c = getopt(argc, argv, "nf:a:lr:")) != -1 ) {
         switch( c ) {
             case 'f':
                 filepath = optarg;
@@ -50,8 +40,6 @@ int main(int argc, char **argv) {
                     case DB_CORRUPTED:
                         printf("Validation failed: File size mismatch! The data may have been corrupted!\n");
                         return -1;
-                    default:
-                        return 0;
                 }
                 break;
 
@@ -71,21 +59,35 @@ int main(int argc, char **argv) {
                     return -1;
                 }
 
-                print_database(database);
-                handle_creating_employee(optarg, database, employees);
+                struct employee_t *employee = NULL;
+                if( add_employee(optarg, database, &employees) == DB_MALLOC ) {
+                    printf("Unable to allocate new space!\n");
+                    break;
+                }
+
+                printf("Successfully added employee\n");
+
                 if( save_database(database, employees) == DB_BADFD ) {
                     printf("Got a bad FD from user!\n");
                 }
-                close_database(database);
-                return 0;
+
+                printf("Successfully save\n");
+                
+                break;
             case 'l' :
                 if ( database == NULL || database->info == NULL ) {
                     printf("Please connect to database first!\n");
                     return -1;
                 }
+                printf("Listing employees\n");
                 list_employees(database->info->count, employees);
                 close_database(database);
                 return 0;
+            case 'r' :
+                if  ( database == NULL || database->info == NULL ) {
+                    printf("Please connect to database first!\n");
+                    return -1;
+                }
             case '?':
                 printf("Unknown option - %c\n", c);
                 return 0;
@@ -93,6 +95,10 @@ int main(int argc, char **argv) {
                 printf("default was called... should not happen");
                 return 0;
         }
+    }
+
+    if ( database != NULL ) {
+        close_database(database);
     }
     
     printf("Exit program\n");

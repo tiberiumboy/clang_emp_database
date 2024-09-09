@@ -12,10 +12,11 @@ typedef enum {
 struct employee_t {
     char name[35];
     char address[35];
-    unsigned int hours;
+    uint16_t hours;
 };
 
 employee_status parse_employee(char *addstr, struct employee_t **employeeOut);
-void list_employees(unsigned int count, struct employee_t *employees);
+employee_status set_hours(struct employee_t *, uint16_t newHour);
+void list_employees(uint16_t count, struct employee_t *employees);
 
 #endif

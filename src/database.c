@@ -21,15 +21,6 @@ void update_file_size(struct database_t *self ) {
     self->info->filesize = info_size + emp_size * self->info->count;
 }
 
-void print_info(struct database_info_t *info) {
-    // segment fault here?
-    if ( &info == NULL ) {
-        printf("Database info is not initialized!");
-        return;
-    }
-    printf("\tinfo:\n\t\tcount:%d\n", info->count);
-}
-
 void __save(int fd, struct database_info_t *info) {
     // convert to network eudian
     host_to_network_info(info);
@@ -107,7 +98,7 @@ database_status create_database(char *filepath, struct database_t **databaseOut)
 database_status read_database(struct database_t *self, struct employee_t **employeesOut) {
     uint16_t count = self->info->count;
     size_t emp_size = sizeof(struct employee_t) * count;
-    
+
     if( read(self->fd, employeesOut, emp_size) != emp_size ) {
         printf("Failed to read via read database method\n");
         perror("read");
@@ -196,29 +187,32 @@ database_status close_database(struct database_t *self) {
 
 database_status add_employee(char *addstr, struct database_t *database, struct employee_t **employees) {
     struct employee_t *emp = {0};
-    switch( parse_employee(addstr, &emp) ) {
-        case EMP_MALLOC:
-            return DB_MALLOC;
-        case EMP_SUCCESS: 
-            unsigned int count = database->info->count + 1; 
-            employees = realloc(employees, count * sizeof(struct employee_t));  
-            *employees[count-1] = *emp;
-            break;
-    } 
+    if( parse_employee(addstr, &emp) == EMP_MALLOC ) {
+        return DB_MALLOC;
+    }
 
+    uint16_t count = database->info->count + 1; 
+    employees = realloc(employees, count * sizeof(struct employee_t));  
+    *employees[count-1] = *emp;
     return DB_SUCCESS;
 }
 
-void print_database(struct database_t *self) {
-    if ( self == NULL ) {
-        printf("Database is not initialized!");
-        return;
+database_status remove_employee(char *filter, struct database_t *database, struct employee_t **employees) {
+    // do I need to iterate through the collection of employees, and find the matching filter?
+    uint16_t count = database->info->count;
+    uint16_t i = 0;
+    for(;i<count;i++) {
+        struct employee_t *emp = employees[i];
+        if( emp->name == filter ) 
+        {
+            // we found the guy!
+            *(employees + i ) = *(employees + count);
+            count = count - 1;
+            database->info->count = count;
+            employees = realloc(employees, count * sizeof(struct employee_t));
+            return DB_SUCCESS;
+        }
     }
-    printf("Content of Database:\n\tfd:%d\n", self->fd);
 
-    if ( self->info == NULL ) {
-        printf("database header is null?\n");
-        return;
-    }
-    print_info(self->info);
+    return DB_NOTFOUND;
 }

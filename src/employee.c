@@ -14,13 +14,8 @@ void network_to_host_employee(struct employee_t *employee) {
 
 // public
 
-void list_employees(unsigned int count, struct employee_t *employees) {
-    if ( employees == NULL ) {
-        return;
-    }
-    
-    unsigned int i = 0;
-    for(; i<count; i++) {
+void list_employees(uint16_t count, struct employee_t *employees) {
+    for(uint16_t i = 0; i<count; i++) {
         printf("Employee %d\n", i);
         printf("\tName: %s\n", employees[i].name);
         printf("\tAddr: %s\n", employees[i].address);
@@ -50,9 +45,7 @@ employee_status parse_employee(char *addstr, struct employee_t **employeeOut) {
     return EMP_SUCCESS;
 }
 
-employee_status update_employee(struct employee_t *self) {
-    // todo figure out what the requirement Ed said about the homework assignment.
-
-
+employee_status set_hours(struct employee_t *self, uint16_t newHour) {
+    self->hours = newHour;
     return EMP_SUCCESS;    
 }
