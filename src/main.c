@@ -46,8 +46,8 @@ int main(int argc, char **argv) {
             case 'n':
                 // wink wink ;D
                 printf("[SUCCESS] Database created!\n");
-                return EXIT_SUCCESS;
-
+                break;
+                
             case 'a':
                 if( check_connection(database) == EXIT_FAILURE ) {
                     return EXIT_FAILURE;
@@ -77,8 +77,7 @@ int main(int argc, char **argv) {
                 }
 
                 list_employees(database->info->count, employees);
-                close_database(database);
-                return EXIT_SUCCESS;
+                break;
             case 'r' :
                 if( check_connection(database) == EXIT_FAILURE ) {
                     return EXIT_FAILURE;

@@ -217,6 +217,7 @@ database_status add_employee(char *addstr, DB_T *database, EMP_T **employees) {
     new_ptr[count - 1] = *emp;
     *employees = new_ptr;
     database->info->count = count;
+    free(emp);
     return DB_SUCCESS;
 }
 
@@ -266,5 +267,6 @@ database_status update_employee(char *newstr, DB_T *database, EMP_T **employees)
         }
     }
     
+    free(target);
     return status;
 }
